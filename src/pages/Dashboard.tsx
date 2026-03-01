@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DoctorDashboard } from '@/components/dashboard/DoctorDashboard';
 import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
+import { CenterDashboard } from '@/components/dashboard/CenterDashboard';
+import { HospitalDashboard } from '@/components/dashboard/HospitalDashboard';
 import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Sliders } from 'lucide-react';
@@ -10,9 +12,9 @@ export default function Dashboard() {
   const { role } = useAuth();
   const [useCustomDashboard, setUseCustomDashboard] = useState(false);
 
-  if (role === 'admin') {
-    return <AdminDashboard />;
-  }
+  if (role === 'admin') return <AdminDashboard />;
+  if (role === 'center_admin') return <CenterDashboard />;
+  if (role === 'hospital_admin') return <HospitalDashboard />;
 
   return (
     <div className="space-y-4">

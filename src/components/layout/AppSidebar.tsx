@@ -52,6 +52,25 @@ const adminNavItems = [
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
+const centerNavItems = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Patients', url: '/patients', icon: Search },
+  { title: 'Reports', url: '/reports', icon: BarChart3 },
+  { title: 'Analytics', url: '/analytics', icon: PieChart },
+  { title: 'Settings', url: '/settings', icon: Settings },
+];
+
+const hospitalNavItems = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Patients', url: '/patients', icon: Search },
+  { title: 'Appointments', url: '/appointments', icon: Calendar },
+  { title: 'Emergency', url: '/emergency', icon: AlertTriangle },
+  { title: 'Reports', url: '/reports', icon: BarChart3 },
+  { title: 'Analytics', url: '/analytics', icon: PieChart },
+  { title: 'Devices', url: '/devices', icon: Smartphone },
+  { title: 'Settings', url: '/settings', icon: Settings },
+];
+
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -59,7 +78,11 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
-  const navItems = role === 'admin' ? adminNavItems : doctorNavItems;
+  const navItems =
+    role === 'admin' ? adminNavItems :
+    role === 'center_admin' ? centerNavItems :
+    role === 'hospital_admin' ? hospitalNavItems :
+    doctorNavItems;
 
   const handleSignOut = async () => {
     await signOut();
