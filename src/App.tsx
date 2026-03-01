@@ -20,6 +20,8 @@ import Devices from "./pages/Devices";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
 import ScanCareTag from "./pages/ScanCareTag";
+import CenterTemplates from "./pages/CenterTemplates";
+import CenterStaff from "./pages/CenterStaff";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -120,6 +122,22 @@ const App = () => (
                 element={
                   <AppLayout>
                     <Analytics />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/center/templates"
+                element={
+                  <AppLayout>
+                    <CenterTemplates />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/center/staff"
+                element={
+                  <AppLayout>
+                    <CenterStaff />
                   </AppLayout>
                 }
               />
