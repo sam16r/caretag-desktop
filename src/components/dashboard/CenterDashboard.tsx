@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import { Progress } from '@/components/ui/progress';
 
 export function CenterDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Patient lookup state
@@ -550,10 +552,10 @@ export function CenterDashboard() {
             <Button variant="outline" className="w-full justify-start gap-2" onClick={() => setActiveTab('lookup')}>
               <ScanLine className="h-4 w-4" /> Scan & Upload Report
             </Button>
-            <Button variant="outline" className="w-full justify-start gap-2">
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/center/staff')}>
               <Users className="h-4 w-4" /> Manage Staff
             </Button>
-            <Button variant="outline" className="w-full justify-start gap-2">
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/center/templates')}>
               <Plus className="h-4 w-4" /> Create Report Template
             </Button>
           </CardContent>

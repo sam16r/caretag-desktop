@@ -57,9 +57,8 @@ const adminNavItems = [
 
 const centerNavItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Upload Reports', url: '/reports', icon: Upload },
-  { title: 'Staff', url: '/settings', icon: Users },
-  { title: 'Branches', url: '/settings', icon: Building2 },
+  { title: 'Templates', url: '/center/templates', icon: FileText },
+  { title: 'Staff', url: '/center/staff', icon: Users },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
