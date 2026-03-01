@@ -12,6 +12,9 @@ import {
   Settings,
   LogOut,
   PieChart,
+  Upload,
+  Users,
+  Building2,
 } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import {
@@ -54,9 +57,9 @@ const adminNavItems = [
 
 const centerNavItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Patients', url: '/patients', icon: Search },
-  { title: 'Reports', url: '/reports', icon: BarChart3 },
-  { title: 'Analytics', url: '/analytics', icon: PieChart },
+  { title: 'Upload Reports', url: '/reports', icon: Upload },
+  { title: 'Staff', url: '/settings', icon: Users },
+  { title: 'Branches', url: '/settings', icon: Building2 },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
