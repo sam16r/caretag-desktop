@@ -23,6 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Safety timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -48,9 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchUserRole(session.user.id);
       }
       setLoading(false);
+      clearTimeout(timeout);
+    }).catch(() => {
+      setLoading(false);
+      clearTimeout(timeout);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const fetchUserRole = async (userId: string) => {
