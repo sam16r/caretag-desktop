@@ -22,6 +22,7 @@ import Analytics from "./pages/Analytics";
 import ScanCareTag from "./pages/ScanCareTag";
 import CenterTemplates from "./pages/CenterTemplates";
 import CenterStaff from "./pages/CenterStaff";
+import CenterBranches from "./pages/CenterBranches";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -138,6 +139,14 @@ const App = () => (
                 element={
                   <AppLayout>
                     <CenterStaff />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/center/branches"
+                element={
+                  <AppLayout>
+                    <CenterBranches />
                   </AppLayout>
                 }
               />
