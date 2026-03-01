@@ -216,6 +216,109 @@ export type Database = {
         }
         Relationships: []
       }
+      diagnostic_reports: {
+        Row: {
+          branch_id: string | null
+          conclusion: string | null
+          created_at: string
+          delivered_at: string | null
+          description: string | null
+          file_type: string | null
+          file_url: string | null
+          finalized_at: string | null
+          finalized_by: string | null
+          findings: string | null
+          id: string
+          organization_id: string
+          patient_id: string
+          referring_doctor_id: string | null
+          report_category: string | null
+          report_type: string
+          result_values: Json | null
+          status: string
+          template_data: Json | null
+          template_id: string | null
+          test_date: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          branch_id?: string | null
+          conclusion?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          description?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          findings?: string | null
+          id?: string
+          organization_id: string
+          patient_id: string
+          referring_doctor_id?: string | null
+          report_category?: string | null
+          report_type: string
+          result_values?: Json | null
+          status?: string
+          template_data?: Json | null
+          template_id?: string | null
+          test_date?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          branch_id?: string | null
+          conclusion?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          description?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          findings?: string | null
+          id?: string
+          organization_id?: string
+          patient_id?: string
+          referring_doctor_id?: string | null
+          report_category?: string | null
+          report_type?: string
+          result_values?: Json | null
+          status?: string
+          template_data?: Json | null
+          template_id?: string | null
+          test_date?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_reports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "org_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emergency_records: {
         Row: {
           actions_taken: string[] | null
@@ -550,6 +653,251 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean
+          message: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          read_at?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      org_branches: {
+        Row: {
+          address: string
+          city: string
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          is_main_branch: boolean
+          manager_id: string | null
+          name: string
+          organization_id: string
+          phone: string | null
+          pincode: string | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          city: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_main_branch?: boolean
+          manager_id?: string | null
+          name: string
+          organization_id: string
+          phone?: string | null
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_main_branch?: boolean
+          manager_id?: string | null
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_branches_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          branch_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          joined_at: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "org_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          accreditation_number: string | null
+          accreditation_type: string | null
+          address: string
+          city: string
+          clinical_establishment_license_url: string | null
+          created_at: string
+          departments: string[] | null
+          email: string | null
+          gst_number: string | null
+          id: string
+          is_active: boolean
+          letterhead_url: string | null
+          logo_url: string | null
+          name: string
+          num_beds: number | null
+          owner_id: string
+          owner_id_proof_url: string | null
+          phone: string | null
+          pincode: string | null
+          registration_certificate_url: string | null
+          registration_number: string | null
+          state: string | null
+          type: Database["public"]["Enums"]["org_type"]
+          updated_at: string
+          verification_notes: string | null
+          verification_status: Database["public"]["Enums"]["org_verification_status"]
+          verified_at: string | null
+          verified_by: string | null
+          website: string | null
+        }
+        Insert: {
+          accreditation_number?: string | null
+          accreditation_type?: string | null
+          address: string
+          city: string
+          clinical_establishment_license_url?: string | null
+          created_at?: string
+          departments?: string[] | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          is_active?: boolean
+          letterhead_url?: string | null
+          logo_url?: string | null
+          name: string
+          num_beds?: number | null
+          owner_id: string
+          owner_id_proof_url?: string | null
+          phone?: string | null
+          pincode?: string | null
+          registration_certificate_url?: string | null
+          registration_number?: string | null
+          state?: string | null
+          type: Database["public"]["Enums"]["org_type"]
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["org_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+          website?: string | null
+        }
+        Update: {
+          accreditation_number?: string | null
+          accreditation_type?: string | null
+          address?: string
+          city?: string
+          clinical_establishment_license_url?: string | null
+          created_at?: string
+          departments?: string[] | null
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          is_active?: boolean
+          letterhead_url?: string | null
+          logo_url?: string | null
+          name?: string
+          num_beds?: number | null
+          owner_id?: string
+          owner_id_proof_url?: string | null
+          phone?: string | null
+          pincode?: string | null
+          registration_certificate_url?: string | null
+          registration_number?: string | null
+          state?: string | null
+          type?: Database["public"]["Enums"]["org_type"]
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["org_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           address: string | null
@@ -843,6 +1191,65 @@ export type Database = {
         }
         Relationships: []
       }
+      report_templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          fields: Json
+          footer_template: string | null
+          header_template: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          organization_id: string | null
+          report_type: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          fields?: Json
+          footer_template?: string | null
+          header_template?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          organization_id?: string | null
+          report_type: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          fields?: Json
+          footer_template?: string | null
+          header_template?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          organization_id?: string | null
+          report_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_schedules: {
         Row: {
           break_end: string | null
@@ -983,10 +1390,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_owner: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       promote_to_admin: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      app_role: "doctor" | "admin"
+      app_role:
+        | "doctor"
+        | "admin"
+        | "center_admin"
+        | "hospital_admin"
+        | "technician"
       appointment_status:
         | "scheduled"
         | "in_progress"
@@ -994,6 +1414,18 @@ export type Database = {
         | "cancelled"
         | "no_show"
       emergency_severity: "low" | "medium" | "high" | "critical"
+      org_member_role:
+        | "owner"
+        | "admin"
+        | "doctor"
+        | "technician"
+        | "receptionist"
+      org_type: "diagnostic_center" | "hospital"
+      org_verification_status:
+        | "pending"
+        | "under_review"
+        | "verified"
+        | "rejected"
       prescription_status: "active" | "completed" | "cancelled"
     }
     CompositeTypes: {
@@ -1122,7 +1554,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["doctor", "admin"],
+      app_role: [
+        "doctor",
+        "admin",
+        "center_admin",
+        "hospital_admin",
+        "technician",
+      ],
       appointment_status: [
         "scheduled",
         "in_progress",
@@ -1131,6 +1569,20 @@ export const Constants = {
         "no_show",
       ],
       emergency_severity: ["low", "medium", "high", "critical"],
+      org_member_role: [
+        "owner",
+        "admin",
+        "doctor",
+        "technician",
+        "receptionist",
+      ],
+      org_type: ["diagnostic_center", "hospital"],
+      org_verification_status: [
+        "pending",
+        "under_review",
+        "verified",
+        "rejected",
+      ],
       prescription_status: ["active", "completed", "cancelled"],
     },
   },
