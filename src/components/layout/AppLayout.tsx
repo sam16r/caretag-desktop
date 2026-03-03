@@ -43,10 +43,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
+        {/* Skip to content link for keyboard/screen reader users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
+        >
+          Skip to main content
+        </a>
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1">
           <AppHeader />
-          <main className="flex-1 overflow-auto p-4 lg:p-6 scrollbar-thin">
+          <main id="main-content" role="main" className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 scrollbar-thin" tabIndex={-1}>
             <div className="animate-in">
               {children}
             </div>
