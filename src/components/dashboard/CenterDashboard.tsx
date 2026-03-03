@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +27,13 @@ import {
   Timer,
   Plus,
   ClipboardList,
+  Camera,
+  Smartphone,
+  Paperclip,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useNfcScanner } from '@/hooks/useNfcScanner';
+import { useQrScanner } from '@/hooks/useQrScanner';
 
 export function CenterDashboard() {
   const { user } = useAuth();
@@ -42,9 +47,14 @@ export function CenterDashboard() {
   const [patientError, setPatientError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('lookup');
 
-  // Simulated scan state
+  // Scan mode state
+  const [scanMode, setScanMode] = useState<'idle' | 'nfc' | 'qr' | 'simulated'>('idle');
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedTimer, setSimulatedTimer] = useState(5);
+
+  // File upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Report upload form state
   const [reportForm, setReportForm] = useState({
@@ -141,6 +151,7 @@ export function CenterDashboard() {
 
       setFoundPatient(data);
       setActiveTab('upload');
+      setScanMode('idle');
       toast.success(`Patient found: ${data.full_name}`);
     } catch (err) {
       console.error('Error searching patient:', err);
@@ -150,8 +161,45 @@ export function CenterDashboard() {
     }
   }, []);
 
+  // NFC scanner
+  const {
+    isSupported: nfcSupported,
+    error: nfcError,
+    startScan: startNfcScan,
+    stopScan: stopNfcScan,
+  } = useNfcScanner(searchPatient);
+
+  // QR scanner
+  const {
+    error: qrError,
+    startScan: startQrScan,
+    stopScan: stopQrScan,
+  } = useQrScanner(searchPatient);
+
+  const handleStartNfc = async () => {
+    setScanMode('nfc');
+    setPatientError(null);
+    await startNfcScan();
+  };
+
+  const handleStartQr = async () => {
+    setScanMode('qr');
+    setPatientError(null);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await startQrScan('center-qr-reader');
+  };
+
+  const handleStopScan = () => {
+    if (scanMode === 'nfc') stopNfcScan();
+    else if (scanMode === 'qr') stopQrScan();
+    else if (scanMode === 'simulated') setIsSimulating(false);
+    setScanMode('idle');
+    setSimulatedTimer(5);
+  };
+
   // Simulated scan
   const handleSimulatedScan = () => {
+    setScanMode('simulated');
     setIsSimulating(true);
     setSimulatedTimer(5);
     setPatientError(null);
@@ -162,7 +210,7 @@ export function CenterDashboard() {
         if (prev <= 1) {
           clearInterval(interval);
           setIsSimulating(false);
-          // Fetch a random patient for demo
+          setScanMode('idle');
           supabase
             .from('patients')
             .select('id, full_name, caretag_id')
@@ -184,11 +232,44 @@ export function CenterDashboard() {
     }, 1000);
   };
 
+  // File upload handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be under 10MB');
+        return;
+      }
+      setUploadedFile(file);
+    }
+  };
+
+  const displayError = patientError || nfcError || qrError;
+
   // Submit report
   const uploadReport = useMutation({
     mutationFn: async () => {
       if (!foundPatient || !org) throw new Error('Missing patient or org');
       if (!reportForm.report_type || !reportForm.title) throw new Error('Report type and title are required');
+
+      let fileUrl: string | null = null;
+      let fileType: string | null = null;
+
+      // Upload file if attached
+      if (uploadedFile) {
+        const ext = uploadedFile.name.split('.').pop();
+        const filePath = `${org.id}/${foundPatient.id}/${Date.now()}.${ext}`;
+        const { error: storageError } = await supabase.storage
+          .from('org-documents')
+          .upload(filePath, uploadedFile);
+        if (storageError) throw new Error('File upload failed: ' + storageError.message);
+        
+        const { data: urlData } = supabase.storage
+          .from('org-documents')
+          .getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
+        fileType = uploadedFile.type;
+      }
 
       const { error } = await supabase.from('diagnostic_reports').insert({
         organization_id: org.id,
@@ -200,6 +281,8 @@ export function CenterDashboard() {
         findings: reportForm.findings || null,
         conclusion: reportForm.conclusion || null,
         template_id: reportForm.template_id || null,
+        file_url: fileUrl,
+        file_type: fileType,
         status: 'draft',
       });
 
@@ -209,6 +292,7 @@ export function CenterDashboard() {
       toast.success('Report uploaded successfully!');
       queryClient.invalidateQueries({ queryKey: ['center-report-stats'] });
       setReportForm({ report_type: '', title: '', description: '', findings: '', conclusion: '', template_id: '' });
+      setUploadedFile(null);
       setFoundPatient(null);
       setActiveTab('lookup');
     },
@@ -223,8 +307,10 @@ export function CenterDashboard() {
   };
 
   const clearPatient = () => {
+  const clearPatient = () => {
     setFoundPatient(null);
     setManualId('');
+    setUploadedFile(null);
     setActiveTab('lookup');
   };
 
@@ -323,10 +409,10 @@ export function CenterDashboard() {
 
               {/* Scan / Manual Entry */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Simulated Scan */}
+                {/* CareTag Scanner */}
                 <Card className="border-dashed">
-                  <CardContent className="p-6 flex flex-col items-center justify-center gap-4 min-h-[200px]">
-                    {isSimulating ? (
+                  <CardContent className="p-6 flex flex-col items-center justify-center gap-4 min-h-[250px]">
+                    {scanMode === 'simulated' ? (
                       <>
                         <div className="relative">
                           <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
@@ -336,7 +422,36 @@ export function CenterDashboard() {
                         </div>
                         <Progress value={(5 - simulatedTimer) * 20} className="h-2 w-full max-w-[180px]" />
                         <p className="text-sm text-muted-foreground">Scanning CareTag...</p>
-                        <Button variant="outline" size="sm" onClick={() => setIsSimulating(false)}>
+                        <Button variant="outline" size="sm" onClick={handleStopScan}>
+                          <X className="h-4 w-4 mr-1" /> Cancel
+                        </Button>
+                      </>
+                    ) : scanMode === 'qr' ? (
+                      <>
+                        <div className="relative w-full aspect-square max-w-[220px] rounded-lg overflow-hidden bg-muted">
+                          <div id="center-qr-reader" className="w-full h-full" />
+                          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                            <div className="w-36 h-36 relative">
+                              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Point camera at CareTag QR code</p>
+                        <Button variant="outline" size="sm" onClick={handleStopScan}>
+                          <X className="h-4 w-4 mr-1" /> Cancel
+                        </Button>
+                      </>
+                    ) : scanMode === 'nfc' ? (
+                      <>
+                        <div className="relative">
+                          <Smartphone className="h-16 w-16 text-primary animate-pulse" />
+                          <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
+                        </div>
+                        <p className="text-sm text-muted-foreground text-center">Hold CareTag near device...</p>
+                        <Button variant="outline" size="sm" onClick={handleStopScan}>
                           <X className="h-4 w-4 mr-1" /> Cancel
                         </Button>
                       </>
@@ -344,9 +459,19 @@ export function CenterDashboard() {
                       <>
                         <ScanLine className="h-12 w-12 text-muted-foreground/40" />
                         <p className="text-sm text-muted-foreground text-center">Scan patient's CareTag</p>
-                        <Button onClick={handleSimulatedScan} className="gap-2">
-                          <Timer className="h-4 w-4" /> Demo Scan (5s)
-                        </Button>
+                        <div className="flex flex-col gap-2 w-full max-w-[200px]">
+                          <Button onClick={handleSimulatedScan} className="gap-2 w-full">
+                            <Timer className="h-4 w-4" /> Demo Scan (5s)
+                          </Button>
+                          <Button onClick={handleStartQr} variant="outline" className="gap-2 w-full">
+                            <Camera className="h-4 w-4" /> QR Scan
+                          </Button>
+                          {nfcSupported && (
+                            <Button onClick={handleStartNfc} variant="outline" className="gap-2 w-full">
+                              <Smartphone className="h-4 w-4" /> NFC Scan
+                            </Button>
+                          )}
+                        </div>
                       </>
                     )}
                   </CardContent>
@@ -354,7 +479,7 @@ export function CenterDashboard() {
 
                 {/* Manual ID Entry */}
                 <Card className="border-dashed">
-                  <CardContent className="p-6 flex flex-col items-center justify-center gap-4 min-h-[200px]">
+                  <CardContent className="p-6 flex flex-col items-center justify-center gap-4 min-h-[250px]">
                     <Search className="h-12 w-12 text-muted-foreground/40" />
                     <p className="text-sm text-muted-foreground text-center">Enter CareTag ID manually</p>
                     <form onSubmit={handleManualSubmit} className="flex gap-2 w-full max-w-[280px]">
@@ -372,11 +497,11 @@ export function CenterDashboard() {
                 </Card>
               </div>
 
-              {patientError && (
+              {displayError && (
                 <Card className="border-destructive bg-destructive/10">
                   <CardContent className="p-3 flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-destructive" />
-                    <p className="text-sm text-destructive">{patientError}</p>
+                    <p className="text-sm text-destructive">{displayError}</p>
                   </CardContent>
                 </Card>
               )}
@@ -480,6 +605,44 @@ export function CenterDashboard() {
                       onChange={(e) => setReportForm(f => ({ ...f, conclusion: e.target.value }))}
                       rows={2}
                     />
+                  </div>
+
+                  {/* File Attachment */}
+                  <div className="space-y-2">
+                    <Label>Attach Report File (PDF, Image)</Label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.dicom"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="gap-2"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        {uploadedFile ? 'Change File' : 'Choose File'}
+                      </Button>
+                      {uploadedFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span className="truncate max-w-[200px]">{uploadedFile.name}</span>
+                          <span className="text-xs">({(uploadedFile.size / 1024).toFixed(0)} KB)</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setUploadedFile(null)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2 justify-end">
