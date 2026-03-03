@@ -1292,6 +1292,56 @@ export type Database = {
         }
         Relationships: []
       }
+      telemedicine_sessions: {
+        Row: {
+          call_notes: string | null
+          created_at: string
+          doctor_id: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          patient_id: string
+          prescriptions_shared: string[] | null
+          room_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          call_notes?: string | null
+          created_at?: string
+          doctor_id: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          patient_id: string
+          prescriptions_shared?: string[] | null
+          room_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          call_notes?: string | null
+          created_at?: string
+          doctor_id?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          patient_id?: string
+          prescriptions_shared?: string[] | null
+          room_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telemedicine_sessions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
