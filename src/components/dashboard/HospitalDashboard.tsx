@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Plus,
 } from 'lucide-react';
+import { VerificationBanner } from './VerificationBanner';
 
 export function HospitalDashboard() {
   const { user } = useAuth();
@@ -80,16 +81,12 @@ export function HospitalDashboard() {
         </Badge>
       </div>
 
-      {org?.verification_status === 'pending' && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Your hospital is pending verification. Some features may be limited until approved.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <VerificationBanner
+        orgId={org?.id}
+        status={org?.verification_status as any}
+        notes={org?.verification_notes}
+        type="hospital"
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
