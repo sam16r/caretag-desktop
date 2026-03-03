@@ -1,418 +1,231 @@
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  UserRound,
-  CalendarCheck,
-  Siren,
-  Pill,
-  ChartLine,
-  Stethoscope,
-  HeartPulse,
-  Droplet,
-  UserCheck,
-  CircleAlert,
-} from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts';
-import { useAnalyticsData } from '@/hooks/useAnalyticsData';
+import {
+  Calendar, TrendingUp, FileText, DollarSign,
+} from 'lucide-react';
+import { format, subDays, startOfDay } from 'date-fns';
 
-const COLORS = [
+const CHART_COLORS = [
   'hsl(var(--primary))',
-  'hsl(var(--accent))',
-  'hsl(var(--success))',
-  'hsl(var(--warning))',
-  'hsl(var(--emergency))',
-  'hsl(215, 70%, 60%)',
-  'hsl(175, 60%, 50%)',
-  'hsl(38, 80%, 55%)',
+  'hsl(var(--chart-2, 160 60% 45%))',
+  'hsl(var(--chart-3, 30 80% 55%))',
+  'hsl(var(--chart-4, 280 65% 60%))',
+  'hsl(var(--chart-5, 340 75% 55%))',
 ];
 
 export default function Reports() {
-  const { data: analytics, isLoading } = useAnalyticsData();
+  const { user, role } = useAuth();
+  const [period, setPeriod] = useState('30');
+  const since = startOfDay(subDays(new Date(), parseInt(period))).toISOString();
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-          <p className="text-muted-foreground mt-1">Comprehensive healthcare analytics dashboard</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-80 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const { data: appointments } = useQuery({
+    queryKey: ['report-appointments', user?.id, role, since],
+    queryFn: async () => {
+      let q = supabase.from('appointments').select('*').gte('created_at', since);
+      if (role === 'doctor') q = q.eq('doctor_id', user!.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
-  const genderData = [
-    { name: 'Male', value: analytics?.genderDistribution.male || 0, fill: 'hsl(var(--primary))' },
-    { name: 'Female', value: analytics?.genderDistribution.female || 0, fill: 'hsl(var(--accent))' },
-  ];
+  const { data: prescriptions } = useQuery({
+    queryKey: ['report-prescriptions', user?.id, role, since],
+    queryFn: async () => {
+      let q = supabase.from('prescriptions').select('*').gte('created_at', since);
+      if (role === 'doctor') q = q.eq('doctor_id', user!.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
-  const appointmentData = [
-    { name: 'Scheduled', value: analytics?.appointmentStatus.scheduled || 0, fill: 'hsl(var(--primary))' },
-    { name: 'Completed', value: analytics?.appointmentStatus.completed || 0, fill: 'hsl(var(--success))' },
-    { name: 'Cancelled', value: analytics?.appointmentStatus.cancelled || 0, fill: 'hsl(var(--warning))' },
-    { name: 'No Show', value: analytics?.appointmentStatus.noShow || 0, fill: 'hsl(var(--emergency))' },
-  ];
+  const { data: invoices } = useQuery({
+    queryKey: ['report-invoices', user?.id, role, since],
+    queryFn: async () => {
+      let q = supabase.from('invoices').select('*').gte('created_at', since);
+      if (role === 'doctor') q = q.eq('doctor_id', user!.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const appointmentsByStatus = (() => {
+    const counts: Record<string, number> = {};
+    appointments?.forEach(a => { counts[a.status] = (counts[a.status] || 0) + 1; });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  })();
+
+  const appointmentsByDay = (() => {
+    const days: Record<string, number> = {};
+    const numDays = parseInt(period);
+    for (let i = numDays - 1; i >= 0; i--) {
+      const d = format(subDays(new Date(), i), 'MMM dd');
+      days[d] = 0;
+    }
+    appointments?.forEach(a => {
+      const d = format(new Date(a.created_at), 'MMM dd');
+      if (days[d] !== undefined) days[d]++;
+    });
+    const entries = Object.entries(days);
+    const step = Math.max(1, Math.floor(entries.length / 15));
+    return entries.filter((_, i) => i % step === 0).map(([date, count]) => ({ date, count }));
+  })();
+
+  const totalRevenue = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
+  const paidRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
+
+  const revenueByDay = (() => {
+    const days: Record<string, number> = {};
+    invoices?.forEach(inv => {
+      const d = format(new Date(inv.created_at), 'MMM dd');
+      days[d] = (days[d] || 0) + Number(inv.total_amount);
+    });
+    return Object.entries(days).map(([date, amount]) => ({ date, amount }));
+  })();
+
+  const prescriptionsByStatus = (() => {
+    const counts: Record<string, number> = {};
+    prescriptions?.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  })();
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-        <p className="text-muted-foreground mt-1">Comprehensive healthcare analytics dashboard</p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Reports & Analytics</h1>
+          <p className="text-sm text-muted-foreground">Data insights for your practice</p>
+        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 days</SelectItem>
+            <SelectItem value="30">Last 30 days</SelectItem>
+            <SelectItem value="90">Last 90 days</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="card-elevated stat-glow-primary">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Total Patients</p>
-                <p className="text-4xl font-bold tracking-tight">{analytics?.totalPatients}</p>
-                <p className="text-sm text-success font-medium flex items-center gap-1">
-                  <ChartLine className="h-3.5 w-3.5" /> Registered
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <UserRound className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-elevated stat-glow-accent">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">With Conditions</p>
-                <p className="text-4xl font-bold tracking-tight">{analytics?.patientsWithConditions}</p>
-                <p className="text-sm text-muted-foreground">
-                  {analytics?.totalPatients ? Math.round((analytics.patientsWithConditions / analytics.totalPatients) * 100) : 0}% of patients
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                <Stethoscope className="h-6 w-6 text-accent" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-elevated">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">With Allergies</p>
-                <p className="text-4xl font-bold tracking-tight">{analytics?.patientsWithAllergies}</p>
-                <p className="text-sm text-warning font-medium flex items-center gap-1">
-                  <CircleAlert className="h-3.5 w-3.5" /> Documented
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                <HeartPulse className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-elevated stat-glow-success">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Prescriptions</p>
-                <p className="text-4xl font-bold tracking-tight">{analytics?.totalPrescriptions}</p>
-                <p className="text-sm text-muted-foreground">Last 30 days</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-success/10 flex items-center justify-center">
-                <Pill className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: 'Appointments', value: appointments?.length ?? 0, icon: Calendar, color: 'text-primary' },
+          { title: 'Prescriptions', value: prescriptions?.length ?? 0, icon: FileText, color: 'text-green-500' },
+          { title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-yellow-500' },
+          { title: 'Paid Revenue', value: `₹${paidRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500' },
+        ].map(stat => (
+          <Card key={stat.title}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Patient Registration Trend */}
-        <Card className="card-elevated lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <ChartLine className="h-4.5 w-4.5 text-primary" />
-              </div>
-              Patient Registration Trend (Last 14 Days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analytics?.dailyRegistrations}>
-                  <defs>
-                    <linearGradient id="colorRegistrations" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 40px -10px rgba(0,0,0,0.15)'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="hsl(var(--primary))"
-                    fill="url(#colorRegistrations)"
-                    strokeWidth={2.5}
-                    name="Patients"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="appointments" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="appointments">Appointments</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
+        </TabsList>
 
-        {/* Gender Distribution */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                <UserCheck className="h-4.5 w-4.5 text-accent" />
-              </div>
-              Gender Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={genderData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={4}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {genderData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-6 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-primary" />
-                <span className="text-sm font-medium">Male: {analytics?.genderDistribution.male}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-accent" />
-                <span className="text-sm font-medium">Female: {analytics?.genderDistribution.female}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <TabsContent value="appointments" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Appointments Over Time</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={appointmentsByDay}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Status Breakdown</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={appointmentsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {appointmentsByStatus.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-        {/* Age Distribution */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
-                <UserRound className="h-4.5 w-4.5 text-success" />
-              </div>
-              Age Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.ageGroups} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis type="category" dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={50} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px'
-                    }}
-                  />
-                  <Bar dataKey="count" fill="hsl(var(--success))" radius={[0, 8, 8, 0]} name="Patients" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Blood Group Distribution */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-emergency/10 flex items-center justify-center">
-                <Droplet className="h-4.5 w-4.5 text-emergency" />
-              </div>
-              Blood Group Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.bloodGroupDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="group" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '12px'
-                    }}
-                  />
-                  <Bar dataKey="count" fill="hsl(var(--emergency))" radius={[8, 8, 0, 0]} name="Patients" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Chronic Conditions */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
-                <Stethoscope className="h-4.5 w-4.5 text-warning" />
-              </div>
-              Top Chronic Conditions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analytics?.topConditions.slice(0, 6).map((condition, index) => (
-                <div key={condition.name} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium truncate max-w-[200px]">{condition.name}</span>
-                    <Badge variant="secondary" className="font-semibold">{condition.count}</Badge>
-                  </div>
-                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${(condition.count / (analytics?.topConditions[0]?.count || 1)) * 100}%`,
-                        backgroundColor: COLORS[index % COLORS.length]
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {(!analytics?.topConditions || analytics.topConditions.length === 0) && (
-                <p className="text-center text-muted-foreground py-8">No chronic conditions recorded</p>
+        <TabsContent value="revenue">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Revenue Trend</CardTitle></CardHeader>
+            <CardContent>
+              {revenueByDay.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <LineChart data={revenueByDay}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No revenue data for this period</div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Top Allergies */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-emergency/10 flex items-center justify-center">
-                <Siren className="h-4.5 w-4.5 text-emergency" />
-              </div>
-              Common Allergies
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analytics?.topAllergies.slice(0, 6).map((allergy, index) => (
-                <div key={allergy.name} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">{allergy.name}</span>
-                    <Badge variant="outline" className="font-semibold border-emergency/40 text-emergency">{allergy.count}</Badge>
-                  </div>
-                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-emergency/70 transition-all duration-500"
-                      style={{ 
-                        width: `${(allergy.count / (analytics?.topAllergies[0]?.count || 1)) * 100}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {(!analytics?.topAllergies || analytics.topAllergies.length === 0) && (
-                <p className="text-center text-muted-foreground py-8">No allergies recorded</p>
+        <TabsContent value="prescriptions">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Prescription Status</CardTitle></CardHeader>
+            <CardContent>
+              {prescriptionsByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={prescriptionsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, value }) => `${name}: ${value}`}>
+                      {prescriptionsByStatus.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No prescription data for this period</div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Appointment Status */}
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg font-semibold">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CalendarCheck className="h-4.5 w-4.5 text-primary" />
-              </div>
-              Appointment Status (30 Days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={appointmentData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {appointmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
