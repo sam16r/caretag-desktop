@@ -24,6 +24,8 @@ import { useDashboardStats, useRecentPatients, useTodayAppointments, useActiveEm
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAccessSession, useActiveSessions } from '@/hooks/useAccessSession';
+import { HospitalWelcomeBanner } from './HospitalWelcomeBanner';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HospitalDoctorDashboardProps {
   hospital: {
@@ -38,6 +40,7 @@ interface HospitalDoctorDashboardProps {
 
 export function HospitalDoctorDashboard({ hospital, memberRole }: HospitalDoctorDashboardProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: recentPatients, isLoading: patientsLoading } = useRecentPatients(4);
   const { data: todayAppointments, isLoading: appointmentsLoading } = useTodayAppointments();
@@ -91,6 +94,15 @@ export function HospitalDoctorDashboard({ hospital, memberRole }: HospitalDoctor
 
   return (
     <div className="space-y-6">
+      {/* Onboarding Welcome Banner */}
+      {user && (
+        <HospitalWelcomeBanner
+          hospital={hospital}
+          memberRole={memberRole}
+          userId={user.id}
+        />
+      )}
+
       {/* Hospital Branding Header */}
       <div className="rounded-xl border bg-card p-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
