@@ -20,6 +20,7 @@ import {
   Settings,
   UserCheck,
   Clock,
+  Building2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -35,6 +36,7 @@ import {
 import { useDashboardStats, useRecentPatients } from '@/hooks/useDashboardData';
 import { format } from 'date-fns';
 import { DoctorVerificationPanel } from '@/components/admin/DoctorVerificationPanel';
+import { OrgVerificationPanel } from '@/components/admin/OrgVerificationPanel';
 
 // Mock data for charts (would be real data in production)
 const opdTrendData = [
@@ -80,22 +82,43 @@ export function AdminDashboard() {
     },
   });
 
+  const { data: pendingOrgCount } = useQuery({
+    queryKey: ['pending-org-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('organizations')
+        .select('*', { count: 'exact', head: true })
+        .eq('verification_status', 'pending');
+      if (error) throw error;
+      return count || 0;
+    },
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="overview" className="gap-2">
               <Activity className="h-4 w-4" />
               Overview
             </TabsTrigger>
             <TabsTrigger value="verification" className="gap-2 relative">
               <UserCheck className="h-4 w-4" />
-              Doctor Verification
+              Doctors
               {pendingVerifications && pendingVerifications > 0 && (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   {pendingVerifications}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="org-verification" className="gap-2 relative">
+              <Building2 className="h-4 w-4" />
+              Organizations
+              {pendingOrgCount && pendingOrgCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {pendingOrgCount}
                 </Badge>
               )}
             </TabsTrigger>
@@ -438,6 +461,11 @@ export function AdminDashboard() {
         {/* Verification Tab */}
         <TabsContent value="verification">
           <DoctorVerificationPanel />
+        </TabsContent>
+
+        {/* Org Verification Tab */}
+        <TabsContent value="org-verification">
+          <OrgVerificationPanel />
         </TabsContent>
       </Tabs>
     </div>
