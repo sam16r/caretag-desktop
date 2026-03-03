@@ -15,6 +15,9 @@ import {
   Upload,
   Users,
   Building2,
+  Stethoscope,
+  Bed,
+  ShieldCheck,
 } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import {
@@ -65,12 +68,11 @@ const centerNavItems = [
 
 const hospitalNavItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Patients', url: '/patients', icon: Search },
-  { title: 'Appointments', url: '/appointments', icon: Calendar },
-  { title: 'Emergency', url: '/emergency', icon: AlertTriangle },
+  { title: 'Doctors & Staff', url: '/hospital/staff', icon: Stethoscope },
+  { title: 'Branches', url: '/hospital/branches', icon: Building2 },
+  { title: 'Departments', url: '/hospital/departments', icon: ShieldCheck },
   { title: 'Reports', url: '/reports', icon: BarChart3 },
   { title: 'Analytics', url: '/analytics', icon: PieChart },
-  { title: 'Devices', url: '/devices', icon: Smartphone },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 

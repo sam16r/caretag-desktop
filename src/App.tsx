@@ -23,6 +23,9 @@ import ScanCareTag from "./pages/ScanCareTag";
 import CenterTemplates from "./pages/CenterTemplates";
 import CenterStaff from "./pages/CenterStaff";
 import CenterBranches from "./pages/CenterBranches";
+import HospitalStaff from "./pages/HospitalStaff";
+import HospitalDepartments from "./pages/HospitalDepartments";
+import HospitalBranches from "./pages/HospitalBranches";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -147,6 +150,30 @@ const App = () => (
                 element={
                   <AppLayout>
                     <CenterBranches />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/hospital/staff"
+                element={
+                  <AppLayout>
+                    <HospitalStaff />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/hospital/departments"
+                element={
+                  <AppLayout>
+                    <HospitalDepartments />
+                  </AppLayout>
+                }
+              />
+              <Route
+                path="/hospital/branches"
+                element={
+                  <AppLayout>
+                    <HospitalBranches />
                   </AppLayout>
                 }
               />
