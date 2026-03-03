@@ -34,6 +34,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useNfcScanner } from '@/hooks/useNfcScanner';
 import { useQrScanner } from '@/hooks/useQrScanner';
+import { VerificationBanner } from './VerificationBanner';
 
 export function CenterDashboard() {
   const { user } = useAuth();
@@ -376,16 +377,12 @@ export function CenterDashboard() {
         </Badge>
       </div>
 
-      {org?.verification_status === 'pending' && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Your center is pending verification. Some features may be limited until approved.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <VerificationBanner
+        orgId={org?.id}
+        status={org?.verification_status as any}
+        notes={org?.verification_notes}
+        type="center"
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
