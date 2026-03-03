@@ -307,7 +307,6 @@ export function CenterDashboard() {
   };
 
   const clearPatient = () => {
-  const clearPatient = () => {
     setFoundPatient(null);
     setManualId('');
     setUploadedFile(null);
