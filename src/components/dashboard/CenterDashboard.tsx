@@ -56,6 +56,9 @@ export function CenterDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
+  // Template field values
+  const [templateFieldValues, setTemplateFieldValues] = useState<Record<string, string>>({});
+
   // Report upload form state
   const [reportForm, setReportForm] = useState({
     report_type: '',
@@ -128,6 +131,40 @@ export function CenterDashboard() {
     },
     enabled: !!org?.id,
   });
+
+  // Fetch recent reports
+  const { data: recentReports } = useQuery({
+    queryKey: ['center-recent-reports', org?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('diagnostic_reports')
+        .select('id, title, report_type, status, created_at, patient_id')
+        .eq('organization_id', org!.id)
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!org?.id,
+  });
+
+  // Get selected template object
+  const selectedTemplate = templates?.find(t => t.id === reportForm.template_id);
+
+  // Handle template selection — populate field values
+  const handleTemplateSelect = (templateId: string) => {
+    setReportForm(f => ({ ...f, template_id: templateId }));
+    const tmpl = templates?.find(t => t.id === templateId);
+    if (tmpl && Array.isArray(tmpl.fields)) {
+      const initial: Record<string, string> = {};
+      (tmpl.fields as any[]).forEach((field: any) => {
+        initial[field.name || field.label || ''] = field.default_value || '';
+      });
+      setTemplateFieldValues(initial);
+    } else {
+      setTemplateFieldValues({});
+    }
+  };
 
   // Search patient by CareTag ID — only return name & ID
   const searchPatient = useCallback(async (caretagId: string) => {
@@ -281,6 +318,7 @@ export function CenterDashboard() {
         findings: reportForm.findings || null,
         conclusion: reportForm.conclusion || null,
         template_id: reportForm.template_id || null,
+        template_data: Object.keys(templateFieldValues).length > 0 ? templateFieldValues : null,
         file_url: fileUrl,
         file_type: fileType,
         status: 'draft',
@@ -291,7 +329,9 @@ export function CenterDashboard() {
     onSuccess: () => {
       toast.success('Report uploaded successfully!');
       queryClient.invalidateQueries({ queryKey: ['center-report-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['center-recent-reports'] });
       setReportForm({ report_type: '', title: '', description: '', findings: '', conclusion: '', template_id: '' });
+      setTemplateFieldValues({});
       setUploadedFile(null);
       setFoundPatient(null);
       setActiveTab('lookup');
@@ -552,7 +592,7 @@ export function CenterDashboard() {
                       <Label>Template (Optional)</Label>
                       <Select
                         value={reportForm.template_id}
-                        onValueChange={(v) => setReportForm(f => ({ ...f, template_id: v }))}
+                        onValueChange={handleTemplateSelect}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select template" />
@@ -566,6 +606,58 @@ export function CenterDashboard() {
                       </Select>
                     </div>
                   </div>
+
+                  {/* Template Fields */}
+                  {selectedTemplate && Array.isArray(selectedTemplate.fields) && (selectedTemplate.fields as any[]).length > 0 && (
+                    <Card className="border-dashed border-primary/20 bg-primary/5">
+                      <CardContent className="p-4 space-y-3">
+                        <p className="text-sm font-medium text-primary">Template Fields — {selectedTemplate.name}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {(selectedTemplate.fields as any[]).map((field: any, idx: number) => {
+                            const key = field.name || field.label || `field-${idx}`;
+                            const fieldType = field.type || 'text';
+                            return (
+                              <div key={key} className="space-y-1">
+                                <Label className="text-xs">{field.label || field.name}{field.required ? ' *' : ''}</Label>
+                                {fieldType === 'textarea' ? (
+                                  <Textarea
+                                    placeholder={field.placeholder || ''}
+                                    value={templateFieldValues[key] || ''}
+                                    onChange={(e) => setTemplateFieldValues(v => ({ ...v, [key]: e.target.value }))}
+                                    rows={2}
+                                    className="text-sm"
+                                  />
+                                ) : fieldType === 'select' && Array.isArray(field.options) ? (
+                                  <Select
+                                    value={templateFieldValues[key] || ''}
+                                    onValueChange={(v) => setTemplateFieldValues(vals => ({ ...vals, [key]: v }))}
+                                  >
+                                    <SelectTrigger className="text-sm">
+                                      <SelectValue placeholder={field.placeholder || 'Select...'} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {field.options.map((opt: string) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input
+                                    type={fieldType === 'number' ? 'number' : 'text'}
+                                    placeholder={field.placeholder || ''}
+                                    value={templateFieldValues[key] || ''}
+                                    onChange={(e) => setTemplateFieldValues(v => ({ ...v, [key]: e.target.value }))}
+                                    className="text-sm"
+                                  />
+                                )}
+                                {field.unit && <span className="text-xs text-muted-foreground">{field.unit}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Report Title *</Label>
@@ -704,25 +796,59 @@ export function CenterDashboard() {
           </CardContent>
         </Card>
 
+        {/* Recent Reports */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ClipboardList className="h-4 w-4" /> Quick Actions
+              <FileText className="h-4 w-4" /> Recent Reports
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full justify-start gap-2" onClick={() => setActiveTab('lookup')}>
-              <ScanLine className="h-4 w-4" /> Scan & Upload Report
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/center/staff')}>
-              <Users className="h-4 w-4" /> Manage Staff
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/center/templates')}>
-              <Plus className="h-4 w-4" /> Create Report Template
-            </Button>
+          <CardContent>
+            {recentReports && recentReports.length > 0 ? (
+              <div className="space-y-2">
+                {recentReports.map((report) => (
+                  <div key={report.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{report.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {report.report_type.replace(/_/g, ' ')} · {new Date(report.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={report.status === 'finalized' ? 'default' : report.status === 'delivered' ? 'secondary' : 'outline'}
+                      className="text-xs capitalize ml-2 shrink-0"
+                    >
+                      {report.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No reports uploaded yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardList className="h-4 w-4" /> Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setActiveTab('lookup')}>
+            <ScanLine className="h-4 w-4" /> Scan & Upload Report
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => navigate('/center/staff')}>
+            <Users className="h-4 w-4" /> Manage Staff
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => navigate('/center/templates')}>
+            <Plus className="h-4 w-4" /> Create Report Template
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
