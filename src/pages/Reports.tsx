@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from 'recharts';
 import {
-  Calendar, TrendingUp, FileText, DollarSign,
+  Calendar, TrendingUp, FileText, DollarSign, Download, ArrowUpDown,
 } from 'lucide-react';
 import { format, subDays, startOfDay } from 'date-fns';
 
@@ -25,7 +26,13 @@ const CHART_COLORS = [
 export default function Reports() {
   const { user, role } = useAuth();
   const [period, setPeriod] = useState('30');
-  const since = startOfDay(subDays(new Date(), parseInt(period))).toISOString();
+  const [compareMode, setCompareMode] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const numDays = parseInt(period);
+  const since = startOfDay(subDays(new Date(), numDays)).toISOString();
+  const prevSince = startOfDay(subDays(new Date(), numDays * 2)).toISOString();
+  const prevEnd = since;
 
   const { data: appointments } = useQuery({
     queryKey: ['report-appointments', user?.id, role, since],
@@ -37,6 +44,18 @@ export default function Reports() {
       return data;
     },
     enabled: !!user?.id,
+  });
+
+  const { data: prevAppointments } = useQuery({
+    queryKey: ['report-appointments-prev', user?.id, role, prevSince, prevEnd],
+    queryFn: async () => {
+      let q = supabase.from('appointments').select('*').gte('created_at', prevSince).lt('created_at', prevEnd);
+      if (role === 'doctor') q = q.eq('doctor_id', user!.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && compareMode,
   });
 
   const { data: prescriptions } = useQuery({
@@ -63,6 +82,18 @@ export default function Reports() {
     enabled: !!user?.id,
   });
 
+  const { data: prevInvoices } = useQuery({
+    queryKey: ['report-invoices-prev', user?.id, role, prevSince, prevEnd],
+    queryFn: async () => {
+      let q = supabase.from('invoices').select('*').gte('created_at', prevSince).lt('created_at', prevEnd);
+      if (role === 'doctor') q = q.eq('doctor_id', user!.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && compareMode,
+  });
+
   const appointmentsByStatus = (() => {
     const counts: Record<string, number> = {};
     appointments?.forEach(a => { counts[a.status] = (counts[a.status] || 0) + 1; });
@@ -71,7 +102,6 @@ export default function Reports() {
 
   const appointmentsByDay = (() => {
     const days: Record<string, number> = {};
-    const numDays = parseInt(period);
     for (let i = numDays - 1; i >= 0; i--) {
       const d = format(subDays(new Date(), i), 'MMM dd');
       days[d] = 0;
@@ -87,6 +117,7 @@ export default function Reports() {
 
   const totalRevenue = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
   const paidRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
+  const prevTotalRevenue = prevInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
 
   const revenueByDay = (() => {
     const days: Record<string, number> = {};
@@ -103,30 +134,77 @@ export default function Reports() {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   })();
 
+  const pctChange = (current: number, prev: number) => {
+    if (prev === 0) return current > 0 ? '+100%' : '0%';
+    const pct = ((current - prev) / prev * 100).toFixed(0);
+    return Number(pct) >= 0 ? `+${pct}%` : `${pct}%`;
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (!appointments) return;
+    const headers = ['Date', 'Status', 'Reason', 'Duration'];
+    const rows = appointments.map(a => [
+      format(new Date(a.scheduled_at), 'yyyy-MM-dd HH:mm'),
+      a.status,
+      a.reason || '',
+      `${a.duration_minutes} min`,
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 print:space-y-4" ref={reportRef}>
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Reports & Analytics</h1>
           <p className="text-sm text-muted-foreground">Data insights for your practice</p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 print:hidden">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setCompareMode(!compareMode)}>
+            <ArrowUpDown className="h-4 w-4" />
+            {compareMode ? 'Hide Comparison' : 'Compare Periods'}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCSV}>
+            <Download className="h-4 w-4" />CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExportPDF}>
+            <FileText className="h-4 w-4" />PDF
+          </Button>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: 'Appointments', value: appointments?.length ?? 0, icon: Calendar, color: 'text-primary' },
+          {
+            title: 'Appointments', value: appointments?.length ?? 0, icon: Calendar, color: 'text-primary',
+            prev: compareMode ? prevAppointments?.length ?? 0 : undefined,
+          },
           { title: 'Prescriptions', value: prescriptions?.length ?? 0, icon: FileText, color: 'text-green-500' },
-          { title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-yellow-500' },
+          {
+            title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-yellow-500',
+            prev: compareMode ? prevTotalRevenue : undefined, rawValue: totalRevenue,
+          },
           { title: 'Paid Revenue', value: `₹${paidRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500' },
         ].map(stat => (
           <Card key={stat.title}>
@@ -136,13 +214,18 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
+              {compareMode && stat.prev !== undefined && (
+                <p className={`text-xs mt-1 ${(typeof stat.rawValue === 'number' ? stat.rawValue : (appointments?.length ?? 0)) >= stat.prev ? 'text-green-600' : 'text-destructive'}`}>
+                  {pctChange(typeof stat.rawValue === 'number' ? stat.rawValue : (appointments?.length ?? 0), stat.prev)} vs previous {period} days
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Tabs defaultValue="appointments" className="space-y-4">
-        <TabsList>
+        <TabsList className="print:hidden">
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
