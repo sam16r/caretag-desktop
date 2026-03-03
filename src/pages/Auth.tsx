@@ -307,7 +307,8 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const { error: signUpError } = await signUp(accountData.email, accountData.password, accountData.fullName, 'doctor');
+      const roleForSignup = accountType === 'diagnostic_center' ? 'center_admin' : accountType === 'hospital' ? 'hospital_admin' : 'doctor';
+      const { error: signUpError } = await signUp(accountData.email, accountData.password, accountData.fullName, roleForSignup);
       if (signUpError) {
         toast({
           title: signUpError.message.includes('already registered') ? 'Email already registered' : 'Signup failed',
