@@ -1,21 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Moon, Sun, Search, ScanLine, Command, User, Lock } from 'lucide-react';
+import { Moon, Sun, Search, ScanLine, Command, User, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsModal } from '@/components/shortcuts/KeyboardShortcutsModal';
 import { useActiveSessions } from '@/hooks/useAccessSession';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -35,11 +29,7 @@ export function AppHeader() {
     }
   };
 
-  const notifications = [
-    { id: 1, title: 'Critical Alert', message: 'Patient vitals below threshold', type: 'emergency', time: '2m ago' },
-    { id: 2, title: 'Appointment', message: 'Upcoming appointment in 15 minutes', type: 'info', time: '10m ago' },
-    { id: 3, title: 'Lab Results', message: 'New lab results available', type: 'success', time: '1h ago' },
-  ];
+  // Removed static notifications — now using NotificationDropdown
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-card/95 backdrop-blur-sm px-4 lg:px-6">
@@ -107,42 +97,7 @@ export function AppHeader() {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-8 w-8">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <div className="px-3 py-2 border-b">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm">Notifications</h4>
-                <Badge variant="secondary" className="text-xs">3 new</Badge>
-              </div>
-            </div>
-            <div className="py-1">
-              {notifications.map((notification) => (
-                <DropdownMenuItem
-                  key={notification.id}
-                  className="flex items-start gap-3 px-3 py-2 cursor-pointer"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{notification.title}</p>
-                    <p className="text-xs text-muted-foreground">{notification.message}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{notification.time}</span>
-                </DropdownMenuItem>
-              ))}
-            </div>
-            <DropdownMenuSeparator />
-            <div className="p-1">
-              <Button variant="ghost" size="sm" className="w-full text-primary">
-                View all notifications
-              </Button>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationDropdown />
 
         {/* Keyboard Shortcuts */}
         <Button
