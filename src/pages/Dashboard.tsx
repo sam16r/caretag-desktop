@@ -9,8 +9,19 @@ import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Sliders } from 'lucide-react';
 
 export default function Dashboard() {
-  const { role } = useAuth();
+  const { role, loading, roleLoading } = useAuth();
   const [useCustomDashboard, setUseCustomDashboard] = useState(false);
+
+  if (loading || roleLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-muted-foreground text-sm">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (role === 'admin') return <AdminDashboard />;
   if (role === 'center_admin') return <CenterDashboard />;
