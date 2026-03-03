@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
-  User, Lock, Bell, Shield, FileText, Save, Eye, EyeOff,
+  User, Lock, Bell, Shield, FileText, Save, Eye, EyeOff, Camera, Building2, Loader2,
 } from 'lucide-react';
 
 export default function Settings() {
@@ -34,6 +34,21 @@ export default function Settings() {
     enabled: !!user?.id,
   });
 
+  // Org data for center/hospital admins
+  const { data: organization } = useQuery({
+    queryKey: ['my-organization', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('owner_id', user!.id)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!user?.id && (role === 'center_admin' || role === 'hospital_admin'),
+  });
+
   // Profile form
   const [profileForm, setProfileForm] = useState<Record<string, string>>({});
   const filledProfile = {
@@ -44,6 +59,52 @@ export default function Settings() {
     clinic_address: profileForm.clinic_address ?? profile?.clinic_address ?? '',
     city: profileForm.city ?? profile?.city ?? '',
     state: profileForm.state ?? profile?.state ?? '',
+  };
+
+  // Org settings form
+  const [orgForm, setOrgForm] = useState<Record<string, string>>({});
+  const filledOrg = {
+    name: orgForm.name ?? organization?.name ?? '',
+    phone: orgForm.phone ?? organization?.phone ?? '',
+    email: orgForm.email ?? organization?.email ?? '',
+    website: orgForm.website ?? organization?.website ?? '',
+    address: orgForm.address ?? organization?.address ?? '',
+    city: orgForm.city ?? organization?.city ?? '',
+    state: orgForm.state ?? organization?.state ?? '',
+    pincode: orgForm.pincode ?? organization?.pincode ?? '',
+  };
+
+  // Avatar upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+
+      queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+      toast.success('Profile photo updated');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const updateProfile = useMutation({
@@ -71,6 +132,33 @@ export default function Settings() {
     onError: () => toast.error('Failed to update profile'),
   });
 
+  const updateOrg = useMutation({
+    mutationFn: async () => {
+      if (!organization) return;
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          name: filledOrg.name,
+          phone: filledOrg.phone,
+          email: filledOrg.email,
+          website: filledOrg.website,
+          address: filledOrg.address,
+          city: filledOrg.city,
+          state: filledOrg.state,
+          pincode: filledOrg.pincode,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', organization.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Organization settings updated');
+      queryClient.invalidateQueries({ queryKey: ['my-organization'] });
+      setOrgForm({});
+    },
+    onError: () => toast.error('Failed to update organization'),
+  });
+
   // Password change
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [showPw, setShowPw] = useState(false);
@@ -88,7 +176,7 @@ export default function Settings() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Notification prefs (stored locally for now)
+  // Notification prefs
   const [notifPrefs, setNotifPrefs] = useState({
     appointments: true,
     labResults: true,
@@ -103,6 +191,8 @@ export default function Settings() {
     .toUpperCase()
     .slice(0, 2) || 'U';
 
+  const showOrgTab = (role === 'center_admin' || role === 'hospital_admin') && organization;
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -115,6 +205,9 @@ export default function Settings() {
           <TabsTrigger value="profile" className="gap-2"><User className="h-4 w-4" />Profile</TabsTrigger>
           <TabsTrigger value="security" className="gap-2"><Lock className="h-4 w-4" />Security</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifications</TabsTrigger>
+          {showOrgTab && (
+            <TabsTrigger value="organization" className="gap-2"><Building2 className="h-4 w-4" />Organization</TabsTrigger>
+          )}
           {role === 'admin' && (
             <TabsTrigger value="admin" className="gap-2"><Shield className="h-4 w-4" />Admin</TabsTrigger>
           )}
@@ -129,10 +222,26 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={profile?.avatar_url ?? undefined} />
-                  <AvatarFallback className="text-lg bg-primary/10 text-primary">{initials}</AvatarFallback>
-                </Avatar>
+                <div className="relative group">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={profile?.avatar_url ?? undefined} />
+                    <AvatarFallback className="text-lg bg-primary/10 text-primary">{initials}</AvatarFallback>
+                  </Avatar>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {uploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])}
+                  />
+                </div>
                 <div>
                   <p className="font-medium">{filledProfile.full_name}</p>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
@@ -191,7 +300,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'destructive' : 'warning'} className="capitalize">
+                  <Badge variant={profile.verification_status === 'verified' ? 'default' : profile.verification_status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
                     {profile.verification_status}
                   </Badge>
                   <p className="text-sm text-muted-foreground">
@@ -224,25 +333,14 @@ export default function Settings() {
                     onChange={(e) => setPasswords(p => ({ ...p, new: e.target.value }))}
                     placeholder="Enter new password"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full"
-                    onClick={() => setShowPw(!showPw)}
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPw(!showPw)}>
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Confirm Password</Label>
-                <Input
-                  type="password"
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords(p => ({ ...p, confirm: e.target.value }))}
-                  placeholder="Confirm new password"
-                />
+                <Input type="password" value={passwords.confirm} onChange={(e) => setPasswords(p => ({ ...p, confirm: e.target.value }))} placeholder="Confirm new password" />
               </div>
               <Button onClick={() => changePassword.mutate()} disabled={changePassword.isPending || !passwords.new}>
                 {changePassword.isPending ? 'Changing...' : 'Change Password'}
@@ -251,9 +349,7 @@ export default function Settings() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Account Details</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Account Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Email</span>
@@ -301,6 +397,76 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Organization Tab */}
+        {showOrgTab && (
+          <TabsContent value="organization" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Organization Settings</CardTitle>
+                <CardDescription>Manage your {role === 'center_admin' ? 'diagnostic center' : 'hospital'} details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Organization Name</Label>
+                    <Input value={filledOrg.name} onChange={(e) => setOrgForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input value={filledOrg.phone} onChange={(e) => setOrgForm(p => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input value={filledOrg.email} onChange={(e) => setOrgForm(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Website</Label>
+                    <Input value={filledOrg.website} onChange={(e) => setOrgForm(p => ({ ...p, website: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Address</Label>
+                    <Input value={filledOrg.address} onChange={(e) => setOrgForm(p => ({ ...p, address: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>City</Label>
+                    <Input value={filledOrg.city} onChange={(e) => setOrgForm(p => ({ ...p, city: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>State</Label>
+                    <Input value={filledOrg.state} onChange={(e) => setOrgForm(p => ({ ...p, state: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pincode</Label>
+                    <Input value={filledOrg.pincode} onChange={(e) => setOrgForm(p => ({ ...p, pincode: e.target.value }))} />
+                  </div>
+                </div>
+                <Button onClick={() => updateOrg.mutate()} disabled={updateOrg.isPending} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {updateOrg.isPending ? 'Saving...' : 'Save Organization Settings'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Verification Status</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <Badge variant={organization?.verification_status === 'verified' ? 'default' : organization?.verification_status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
+                    {organization?.verification_status}
+                  </Badge>
+                  <p className="text-sm text-muted-foreground">
+                    {organization?.verification_status === 'verified'
+                      ? 'Your organization is verified and active.'
+                      : organization?.verification_status === 'rejected'
+                      ? `Rejected: ${organization.verification_notes || 'Please contact support.'}`
+                      : 'Verification is in progress.'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Admin Tab */}
         {role === 'admin' && (
