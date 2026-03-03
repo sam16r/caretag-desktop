@@ -6,14 +6,17 @@ import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/hooks/useTheme';
+import { useI18n } from '@/hooks/useI18n';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsModal } from '@/components/shortcuts/KeyboardShortcutsModal';
 import { useActiveSessions } from '@/hooks/useAccessSession';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
 
 export function AppHeader() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcuts = useKeyboardShortcuts(() => setShortcutsOpen(true));
@@ -32,8 +35,8 @@ export function AppHeader() {
   // Removed static notifications — now using NotificationDropdown
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-card/95 backdrop-blur-sm px-4 lg:px-6">
-      <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:text-foreground" />
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-card/95 backdrop-blur-sm px-4 lg:px-6" role="banner">
+      <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:text-foreground" aria-label={t('a11y.toggle_sidebar')} />
 
       <div className="h-5 w-px bg-border hidden md:block" />
 
@@ -59,9 +62,10 @@ export function AppHeader() {
       {/* Search */}
       <form onSubmit={handleSearch} className="flex-1 max-w-md">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="Search patients..."
+            placeholder={t('a11y.search_patients') + '...'}
+            aria-label={t('a11y.search_patients')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 pr-20 h-9 bg-muted/50 border-0 focus:bg-background focus:ring-1 focus:ring-primary/20"
@@ -109,12 +113,16 @@ export function AppHeader() {
           <Command className="h-4 w-4" />
         </Button>
 
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+
         {/* Theme Toggle */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="h-8 w-8"
+          aria-label={t('a11y.toggle_theme')}
         >
           {theme === 'dark' ? (
             <Sun className="h-4 w-4" />

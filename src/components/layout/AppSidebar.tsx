@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import {
   LayoutDashboard,
   Search,
@@ -36,50 +37,51 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 const doctorNavItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Patients', url: '/patients', icon: Search },
-  { title: 'Appointments', url: '/appointments', icon: Calendar },
-  { title: 'Emergency', url: '/emergency', icon: AlertTriangle },
-  { title: 'Records', url: '/records', icon: FileText },
-  { title: 'Prescriptions', url: '/prescriptions', icon: Pill },
-  { title: 'Analytics', url: '/analytics', icon: PieChart },
-  { title: 'Reports', url: '/reports', icon: BarChart3 },
-  { title: 'Devices', url: '/devices', icon: Smartphone },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav.dashboard', url: '/', icon: LayoutDashboard },
+  { titleKey: 'nav.patients', url: '/patients', icon: Search },
+  { titleKey: 'nav.appointments', url: '/appointments', icon: Calendar },
+  { titleKey: 'nav.emergency', url: '/emergency', icon: AlertTriangle },
+  { titleKey: 'nav.records', url: '/records', icon: FileText },
+  { titleKey: 'nav.prescriptions', url: '/prescriptions', icon: Pill },
+  { titleKey: 'nav.analytics', url: '/analytics', icon: PieChart },
+  { titleKey: 'nav.reports', url: '/reports', icon: BarChart3 },
+  { titleKey: 'nav.devices', url: '/devices', icon: Smartphone },
+  { titleKey: 'nav.settings', url: '/settings', icon: Settings },
 ];
 
 const adminNavItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Patients', url: '/patients', icon: Search },
-  { title: 'Appointments', url: '/appointments', icon: Calendar },
-  { title: 'Emergency', url: '/emergency', icon: AlertTriangle },
-  { title: 'Analytics', url: '/analytics', icon: PieChart },
-  { title: 'Reports', url: '/reports', icon: BarChart3 },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav.dashboard', url: '/', icon: LayoutDashboard },
+  { titleKey: 'nav.patients', url: '/patients', icon: Search },
+  { titleKey: 'nav.appointments', url: '/appointments', icon: Calendar },
+  { titleKey: 'nav.emergency', url: '/emergency', icon: AlertTriangle },
+  { titleKey: 'nav.analytics', url: '/analytics', icon: PieChart },
+  { titleKey: 'nav.reports', url: '/reports', icon: BarChart3 },
+  { titleKey: 'nav.settings', url: '/settings', icon: Settings },
 ];
 
 const centerNavItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Branches', url: '/center/branches', icon: Building2 },
-  { title: 'Templates', url: '/center/templates', icon: FileText },
-  { title: 'Staff', url: '/center/staff', icon: Users },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav.dashboard', url: '/', icon: LayoutDashboard },
+  { titleKey: 'nav.branches', url: '/center/branches', icon: Building2 },
+  { titleKey: 'nav.templates', url: '/center/templates', icon: FileText },
+  { titleKey: 'nav.staff', url: '/center/staff', icon: Users },
+  { titleKey: 'nav.settings', url: '/settings', icon: Settings },
 ];
 
 const hospitalNavItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Doctors & Staff', url: '/hospital/staff', icon: Stethoscope },
-  { title: 'Branches', url: '/hospital/branches', icon: Building2 },
-  { title: 'Departments', url: '/hospital/departments', icon: ShieldCheck },
-  { title: 'Reports', url: '/reports', icon: BarChart3 },
-  { title: 'Analytics', url: '/analytics', icon: PieChart },
-  { title: 'Settings', url: '/settings', icon: Settings },
+  { titleKey: 'nav.dashboard', url: '/', icon: LayoutDashboard },
+  { titleKey: 'nav.doctors_staff', url: '/hospital/staff', icon: Stethoscope },
+  { titleKey: 'nav.branches', url: '/hospital/branches', icon: Building2 },
+  { titleKey: 'nav.departments', url: '/hospital/departments', icon: ShieldCheck },
+  { titleKey: 'nav.reports', url: '/reports', icon: BarChart3 },
+  { titleKey: 'nav.analytics', url: '/analytics', icon: PieChart },
+  { titleKey: 'nav.settings', url: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, signOut } = useAuth();
+  const { t } = useI18n();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
@@ -139,20 +141,21 @@ export function AppSidebar() {
             "px-3 mb-2 text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider transition-all duration-200 ease-in-out overflow-hidden whitespace-nowrap",
             collapsed ? "h-0 opacity-0 mb-0" : "h-auto opacity-100"
           )}>
-            Menu
+            {t('nav.menu')}
           </p>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-0.5">
+            <SidebarMenu className="space-y-0.5" role="navigation" aria-label={t('a11y.main_navigation')}>
               {navItems.map((item) => {
+                const title = t(item.titleKey);
                 const isActive = location.pathname === item.url;
-                const isEmergency = item.title === 'Emergency';
+                const isEmergency = item.titleKey === 'nav.emergency';
                 
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.titleKey}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      tooltip={item.title}
+                      tooltip={title}
                       className={cn(
                         'transition-all duration-200 rounded-md h-9',
                         collapsed && 'flex items-center justify-center',
@@ -164,16 +167,17 @@ export function AppSidebar() {
                     >
                       <button
                         onClick={() => navigate(item.url)}
+                        aria-current={isActive ? 'page' : undefined}
                         className={cn(
                           "flex items-center w-full transition-all duration-200 ease-in-out",
                           collapsed ? "justify-center px-0" : "gap-3 px-3"
                         )}
                       >
-                        <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                        <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" aria-hidden="true" />
                         <span className={cn(
                           "text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap overflow-hidden",
                           collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-                        )}>{item.title}</span>
+                        )}>{title}</span>
                       </button>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -286,3 +286,42 @@
     background: hsl(var(--muted-foreground) / 0.3);
   }
 }
+
+/* Accessibility: Enhanced focus indicators */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mobile touch target improvements */
+@media (max-width: 640px) {
+  button, [role="button"], a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .sidebar-menu-button {
+    min-height: 48px;
+  }
+}
+
+/* Print styles for reports */
+@media print {
+  .print\\:hidden, nav, header, aside {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
