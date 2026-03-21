@@ -134,7 +134,9 @@ export function useRealtimeNotifications() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn('Vitals channel error:', err.message);
+      });
 
     // Subscribe to appointments (upcoming reminders)
     const appointmentsChannel = supabase
