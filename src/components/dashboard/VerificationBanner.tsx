@@ -85,7 +85,9 @@ export function VerificationBanner({ orgId, status, notes, type }: VerificationB
           queryClient.invalidateQueries({ queryKey: ['my-organization'] });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn('Verification channel error:', err.message);
+      });
 
     return () => {
       supabase.removeChannel(channel);

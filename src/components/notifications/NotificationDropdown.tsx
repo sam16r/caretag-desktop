@@ -60,7 +60,9 @@ export function NotificationDropdown() {
           queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn('Notifications channel error:', err.message);
+      });
 
     return () => {
       supabase.removeChannel(channel);

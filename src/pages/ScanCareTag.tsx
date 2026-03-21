@@ -105,7 +105,7 @@ export default function ScanCareTag() {
   const [rfidBuffer, setRfidBuffer] = useState('');
   const [scannedMismatchId, setScannedMismatchId] = useState<string | null>(null);
   const [demoTimer, setDemoTimer] = useState(5);
-  const rfidTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rfidTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingRef = useRef(false);
   const { startSession } = useAccessSession();
 
