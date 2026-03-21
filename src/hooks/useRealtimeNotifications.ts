@@ -68,7 +68,6 @@ export function useRealtimeNotifications() {
         async (payload) => {
           console.log('New emergency:', payload);
           
-          // Fetch patient name
           const { data: patient } = await supabase
             .from('patients')
             .select('full_name')
@@ -84,7 +83,9 @@ export function useRealtimeNotifications() {
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn('Emergency channel error:', err.message);
+      });
 
     // Subscribe to critical vitals
     const vitalsChannel = supabase
