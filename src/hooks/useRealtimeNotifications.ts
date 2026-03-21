@@ -166,7 +166,9 @@ export function useRealtimeNotifications() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn('Appointments channel error:', err.message);
+      });
 
     return () => {
       supabase.removeChannel(emergencyChannel);
